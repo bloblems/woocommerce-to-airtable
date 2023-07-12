@@ -1,8 +1,9 @@
 <?php
+
 /**
  * Plugin Name: WooCommerce To Airtable
  * Description: WooCommerce To Airtable plugin synchronizes WooCommerce order processing to Airtable. It sends new processing orders and their updates to Airtable, thus maintaining a seamless order tracking system.
- * Version: 1.0
+ * Version: 1.1
  * Author: Byron Jacobs
  * Author URI: https://byronjacobs.co.za
  * License: GPLv2 or later
@@ -12,7 +13,8 @@
 add_action('woocommerce_order_status_processing', 'send_order_to_airtable', 10, 1);
 add_action('woocommerce_order_status_changed', 'send_order_to_airtable', 10, 1);
 
-function send_order_to_airtable($order_id) {
+function send_order_to_airtable($order_id)
+{
 
     $order = wc_get_order($order_id);
     $order_data = $order->get_data();
@@ -24,16 +26,22 @@ function send_order_to_airtable($order_id) {
     $items = $order->get_items();
     $products = array();
     $order_quantity = array();
-    foreach($items as $item){
-        $products[] = $item->get_name();
-        $order_quantity[] = $item->get_name() . '(' . $item->get_quantity() . ')';
+    foreach ($items as $item) {
+        $product = $item->get_product();
+        $sku = $product->get_sku();  // Get SKU of the product
+        $products[] = $sku;
+        $order_quantity[] = $sku . ' (' . $item->get_quantity() . ')';
     }
+
+    // Capitalize first name and last name
+    $first_name = ucfirst($order_data['billing']['first_name']);
+    $last_name = ucfirst($order_data['billing']['last_name']);
 
     $fields = [
         'Order #' => (string)$order_id,
         'Date' => $order->get_date_created()->date('Y-m-d H:i:s'),
         'Order Total' => $order->get_total(),
-        'Customer' => $order_data['billing']['first_name'] . ' ' . $order_data['billing']['last_name'],
+        'Customer' => $first_name . ' ' . $last_name,
         'Status' => $order->get_status(),
         'Product' => implode(', ', $products),
         'Order Quantity' => implode(', ', $order_quantity),
@@ -46,7 +54,8 @@ function send_order_to_airtable($order_id) {
         'Notes' => $order->get_customer_note(),
     ];
 
-    $json = json_encode(['fields' => $fields]);
+    $json = json_encode(['fields' => $fields], JSON_UNESCAPED_UNICODE);
+
 
     // Save payload in a custom field on the order
     $order->add_order_note('Payload sent to Airtable: ' . $json);
@@ -92,22 +101,39 @@ function send_order_to_airtable($order_id) {
 
 // Add Meta Box for WooCommerce Order
 add_action('add_meta_boxes', 'airtable_order_metabox');
-function airtable_order_metabox() {
+function airtable_order_metabox()
+{
     add_meta_box('airtable_order_metabox', 'Airtable Status', 'airtable_order_metabox_callback', 'shop_order', 'side', 'default');
 }
 
 // Meta Box Callback
-function airtable_order_metabox_callback($post) {
+function airtable_order_metabox_callback($post)
+{
     global $post, $woocommerce, $theorder;
 
-    if ( ! is_object( $theorder ) ) {
-        $theorder = wc_get_order( $post->ID );
+    if (!is_object($theorder)) {
+        $theorder = wc_get_order($post->ID);
     }
 
-    $notes = wc_get_order_notes( array( 'order_id' => $theorder->get_id() ) );
-    foreach( $notes as $note ) {
+    $notes = wc_get_order_notes(array('order_id' => $theorder->get_id()));
+    foreach ($notes as $note) {
         if (strpos($note->content, 'Airtable') !== false) {
-            echo '<strong>'.$note->content.'</strong>';
+            echo '<strong>' . $note->content . '</strong>';
         }
     }
+}
+
+// The following function adds a new action button named 'Resend to Airtable' on the order page
+add_action('woocommerce_order_actions', 'add_resend_order_to_airtable_action');
+function add_resend_order_to_airtable_action($actions)
+{
+    $actions['resend_to_airtable'] = __('Resend to Airtable', 'woocommerce');
+    return $actions;
+}
+
+// When the 'Resend to Airtable' button is clicked, this function will be triggered, which then calls your send_order_to_airtable() function
+add_action('woocommerce_order_action_resend_to_airtable', 'process_resend_order_to_airtable_action');
+function process_resend_order_to_airtable_action($order)
+{
+    send_order_to_airtable($order->get_id());
 }
