@@ -21,7 +21,13 @@ function send_order_to_airtable($order_id)
 
     $token = '';
     $baseId = '';
-    $tableName = '';
+   
+	//table names
+	$defaultTableName = ''; 
+   	$tableNameForSpecialSKU = ''; 
+	
+    $specialSKUs = ['', '']; // Add your special SKUs here
+    $containsSpecialSKU = false; 
 
     $items = $order->get_items();
     $products = array();
@@ -29,10 +35,15 @@ function send_order_to_airtable($order_id)
     foreach ($items as $item) {
         $product = $item->get_product();
         $sku = $product->get_sku();  // Get SKU of the product
+        if (in_array($sku, $specialSKUs)) {
+            $containsSpecialSKU = true;
+        }
         $products[] = $sku;
         $order_quantity[] = $sku . ' (' . $item->get_quantity() . ')';
     }
 
+    $tableName = $containsSpecialSKU ? $tableNameForSpecialSKU : $defaultTableName;
+	
     // Capitalize first name and last name
     $first_name = ucfirst($order_data['billing']['first_name']);
     $last_name = ucfirst($order_data['billing']['last_name']);
@@ -40,18 +51,19 @@ function send_order_to_airtable($order_id)
     $fields = [
         'Order #' => (string)$order_id,
         'Date' => $order->get_date_created()->date('Y-m-d H:i:s'),
-        'Order Total' => $order->get_total(),
+        'Order Total' => floatval($order->get_total()),
         'Customer' => $first_name . ' ' . $last_name,
         'Status' => $order->get_status(),
         'Product' => implode(', ', $products),
         'Order Quantity' => implode(', ', $order_quantity),
-        'Customer Contact Number' => $order_data['billing']['phone'],
+        'Customer Phone Number' => $order_data['billing']['phone'],
         'Customer Email' => $order_data['billing']['email'],
         'Shipping Address' => $order_data['shipping']['address_1'] . ', ' . $order_data['shipping']['city'] . ', ' . $order_data['shipping']['postcode'] . ', ' . $order_data['shipping']['country'],
+		'State' => $order_data['shipping']['state'],
         'Billing Address' => $order_data['billing']['address_1'] . ', ' . $order_data['billing']['city'] . ', ' . $order_data['billing']['postcode'] . ', ' . $order_data['billing']['country'],
         'Currency' => $order->get_currency(),
-        'Shipping Price' => $order->get_shipping_total(),
-        'Notes' => $order->get_customer_note(),
+        'Shipping Price' => floatval($order->get_shipping_total()),
+        'Customer Notes' => $order->get_customer_note(),
     ];
 
     $json = json_encode(['fields' => $fields], JSON_UNESCAPED_UNICODE);
