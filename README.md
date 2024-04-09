@@ -11,6 +11,7 @@ WooCommerce To Airtable is a WordPress plugin that synchronizes WooCommerce orde
 - Added Resend to Airtable Action: A new action button on the admin order page that allows the order data to be manually resent to Airtable.
 - Enhanced Data Formatting: Send SKU instead of the product name, and the order quantity shows the SKU and quantity in brackets.
 - Capitalization of Names: The customer's first and last names are now being capitalized before being sent to Airtable.
+- Unique SKU Filtering: Send specific product SKUs to a seperate table
 
 ## Installation
 1. Clone this repository to your local machine or download the zip file.
