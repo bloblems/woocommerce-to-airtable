@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.2] - 2024-04-08
+
+- Added special product filtering to a separate table
+- Fixed error where airtable would not accept woo string for currency columns
+- Added state
+
 ## [1.1] - 2023-07-12
 
 ### Added
